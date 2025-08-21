@@ -117,7 +117,7 @@
     const maxTop = H - g - 120 * DPR;
     const top = Math.floor(minTop + Math.random() * (maxTop - minTop));
     const width = Math.floor(70 * DPR);
-    const speed = Math.max(2.2 * DPR, Math.min(3.6 * DPR, (2.6 * DPR) + score * 0.02 * DPR));
+    const speed = Math.max(3.5 * DPR, Math.min(5.5 * DPR, (4 * DPR) + score * 0.03 * DPR));
     pipes.push({ x, top, g, w: width, passed: false, speed });
   }
 
