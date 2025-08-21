@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, maximum-scale=1" />
+<title>Sky Flap</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%; background: #87CEEB; overflow: hidden;
+    touch-action: none; /* prevent double-tap zoom */
+    -webkit-user-select: none; user-select: none;
+  }
+  #ui {
+    position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center;
+    padding: env(safe-area-inset-top) 12px 8px 12px; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color: #073B4C; font-weight: 700; z-index: 2;
+  }
+  #score { font-size: 22px; }
+  #pauseBtn {
+    border: none; font-size: 16px; padding: 8px 12px; border-radius: 10px;
+    background: rgba(255,255,255,0.8);
+  }
+  #message {
+    position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    text-align: center; color: #073B4C; z-index: 3; pointer-events: none;
+  }
+  .card {
+    background: rgba(255,255,255,0.9); padding: 16px 18px; border-radius: 14px; max-width: 90vw;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  }
+  .title { font-size: 24px; margin: 0 0 6px 0; }
+  .subtitle { font-size: 14px; margin: 0; opacity: 0.8; }
+  .hint { font-size: 13px; opacity: 0.8; margin-top: 8px; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <div id="score">0</div>
+  <button id="pauseBtn" aria-label="Pausa">⏸︎</button>
+</div>
+<canvas id="game" aria-label="Sky Flap spelduk"></canvas>
+<div id="message">
+  <div class="card">
+    <h1 class="title">Sky Flap</h1>
+    <p class="subtitle">Tryck var som helst för att flaxa. Undvik rören. 🐤</p>
+    <p class="hint">Tips: Lägg till på hemskärmen för helskärm.</p>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const message = document.getElementById('message');
+  const DPR = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+  let W = 0, H = 0;
+
+  // Game state
+  let pipes = [];
+  let time = 0;
+  let running = false;
+  let paused = false;
+  let score = 0;
+  let best = Number(localStorage.getItem('sf_highscore') || 0);
+  let gameOver = false;
+
+  const bird = {
+    x: 0, y: 0, r: 14,
+    vy: 0,
+  };
+
+  function resize() {
+    W = Math.floor(window.innerWidth * DPR);
+    H = Math.floor(window.innerHeight * DPR);
+    canvas.width = W;
+    canvas.height = H;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function reset() {
+    pipes = [];
+    time = 0;
+    score = 0;
+    gameOver = false;
+    bird.x = Math.floor(W * 0.25);
+    bird.y = Math.floor(H * 0.5);
+    bird.vy = 0;
+    spawnInitialPipes();
+    scoreEl.textContent = score;
+  }
+
+  function spawnInitialPipes() {
+    for (let i = 0; i < 4; i++) {
+      spawnPipe(W + i * pipeSpacing());
+    }
+  }
+
+  function pipeSpacing() {
+    return Math.max(220 * DPR, Math.min(320 * DPR, W * 0.45));
+  }
+
+  function gapSize() {
+    // Adaptive gap: slightly larger on small screens
+    return Math.max(150 * DPR, Math.min(220 * DPR, H * 0.32));
+  }
+
+  function spawnPipe(x) {
+    const g = gapSize();
+    const minTop = 60 * DPR;
+    const maxTop = H - g - 120 * DPR;
+    const top = Math.floor(minTop + Math.random() * (maxTop - minTop));
+    const width = Math.floor(70 * DPR);
+    const speed = Math.max(2.2 * DPR, Math.min(3.6 * DPR, (2.6 * DPR) + score * 0.02 * DPR));
+    pipes.push({ x, top, g, w: width, passed: false, speed });
+  }
+
+  function flap() {
+    if (!running || gameOver) {
+      start();
+      return;
+    }
+    if (paused) return;
+    bird.vy = -9.6 * DPR;
+  }
+
+  // Controls
+  window.addEventListener('touchstart', (e) => { e.preventDefault(); flap(); }, { passive: false });
+  window.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'touch') flap(); });
+  window.addEventListener('keydown', (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); flap(); }});
+
+  pauseBtn.addEventListener('click', () => {
+    if (!running || gameOver) return;
+    paused = !paused;
+    pauseBtn.textContent = paused ? '▶︎' : '⏸︎';
+  });
+
+  function start() {
+    if (!running) {
+      message.style.display = 'none';
+      paused = false;
+      pauseBtn.textContent = '⏸︎';
+      running = true;
+      reset();
+    }
+  }
+
+  function end() {
+    running = false;
+    gameOver = true;
+    best = Math.max(best, score);
+    localStorage.setItem('sf_highscore', String(best));
+    showGameOver();
+  }
+
+  function showGameOver() {
+    message.innerHTML = `
+      <div class="card" role="dialog" aria-live="polite">
+        <h1 class="title">Game Over</h1>
+        <p class="subtitle">Poäng: ${score} &nbsp;•&nbsp; Bästa: ${best}</p>
+        <p class="hint">Tryck för att spela igen.</p>
+      </div>`;
+    message.style.display = 'flex';
+  }
+
+  // Drawing helpers
+  function drawBackground() {
+    // Sky gradient
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, '#87CEEB');
+    grad.addColorStop(1, '#E0F7FF');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Ground
+    const groundH = Math.floor(80 * DPR);
+    ctx.fillStyle = '#7AC74F';
+    ctx.fillRect(0, H - groundH, W, groundH);
+    // Ground stripes
+    ctx.globalAlpha = 0.15;
+    for (let i = 0; i < W; i += 40 * DPR) {
+      ctx.fillRect(i, H - groundH, 20 * DPR, groundH);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawBird() {
+    const { x, y, r } = bird;
+    // Body
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFD166';
+    ctx.fill();
+    // Belly
+    ctx.beginPath();
+    ctx.arc(x + r * 0.2, y + r * 0.2, r * 0.7, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFE6A3';
+    ctx.fill();
+    // Eye
+    ctx.beginPath();
+    ctx.arc(x + r * 0.4, y - r * 0.2, r * 0.18, 0, Math.PI * 2);
+    ctx.fillStyle = '#000';
+    ctx.fill();
+    // Beak
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + r + r * 0.8, y - r * 0.2);
+    ctx.lineTo(x + r + r * 0.8, y + r * 0.2);
+    ctx.closePath();
+    ctx.fillStyle = '#F77F00';
+    ctx.fill();
+    // Wing (flap animation)
+    const wingY = y + Math.sin(time * 0.35) * r * 0.4;
+    ctx.beginPath();
+    ctx.ellipse(x - r * 0.2, wingY, r * 0.9, r * 0.5, -0.8, 0, Math.PI * 2);
+    ctx.fillStyle = '#E09F3E';
+    ctx.fill();
+  }
+
+  function drawPipes() {
+    pipes.forEach(p => {
+      const x = Math.floor(p.x);
+      const w = p.w;
+      // Top pipe
+      ctx.fillStyle = '#2A9D8F';
+      ctx.fillRect(x, 0, w, p.top);
+      // Bottom pipe
+      const bottomTop = p.top + p.g;
+      ctx.fillRect(x, bottomTop, w, H - bottomTop);
+
+      // Pipe lips
+      ctx.fillStyle = '#1F7F74';
+      ctx.fillRect(x - 8 * DPR, p.top - 14 * DPR, w + 16 * DPR, 14 * DPR);
+      ctx.fillRect(x - 8 * DPR, bottomTop, w + 16 * DPR, 14 * DPR);
+    });
+  }
+
+  function update(dt) {
+    if (paused) return;
+    time += dt;
+
+    // Gravity
+    bird.vy += 22 * DPR * dt; // gravity
+    bird.vy = Math.min(bird.vy, 14 * DPR); // clamp fall speed
+    bird.y += bird.vy;
+
+    // Move pipes
+    for (let i = 0; i < pipes.length; i++) {
+      const p = pipes[i];
+      p.x -= p.speed;
+      // Scoring
+      if (!p.passed && p.x + p.w < bird.x - bird.r) {
+        p.passed = true;
+        score += 1;
+        scoreEl.textContent = score;
+        // Slight speed-up every score
+        pipes.forEach(pp => pp.speed *= 1.003);
+      }
+    }
+
+    // Recycle pipes
+    const spacing = pipeSpacing();
+    if (pipes.length && pipes[0].x + pipes[0].w < -10 * DPR) {
+      pipes.shift();
+    }
+    if (pipes.length < 6) {
+      const lastX = pipes.length ? pipes[pipes.length - 1].x : W;
+      if (lastX < W + 3 * spacing) {
+        spawnPipe(lastX + spacing);
+      }
+    }
+
+    // Collisions
+    // Ground / ceiling
+    const groundH = Math.floor(80 * DPR);
+    if (bird.y + bird.r > H - groundH || bird.y - bird.r < 0) {
+      end();
+      return;
+    }
+    // Pipes
+    for (const p of pipes) {
+      const inX = bird.x + bird.r > p.x && bird.x - bird.r < p.x + p.w;
+      if (inX) {
+        const gapTop = p.top;
+        const gapBottom = p.top + p.g;
+        if (bird.y - bird.r < gapTop || bird.y + bird.r > gapBottom) {
+          end();
+          return;
+        }
+      }
+    }
+  }
+
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.033, (now - last) / 1000);
+    last = now;
+    if (running && !gameOver) update(dt);
+    drawBackground();
+    drawPipes();
+    drawBird();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // Expose restart on tap after game over (handled by flap->start)
+  // Show start screen initially (message visible)
+})();
+</script>
+</body>
+</html>
