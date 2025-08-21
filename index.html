@@ -52,7 +52,12 @@
 <script>
 (() => {
   const birdImg = new Image();
-birdImg.src = 'IMG_2426.jpg'; // din bildfil
+birdImg.src = 'IMG_2426.jpg';
+
+birdImg.onload = () => {
+  // Starta spelet först när bilden är laddad
+  requestAnimationFrame(loop);
+};
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
   const scoreEl = document.getElementById('score');
