@@ -156,6 +156,19 @@
     if (bird.y + bird.r > H - groundH || bird.y - bird.r < 0) end();
     for (const p of pipes) { const inX = bird.x + bird.r > p.x && bird.x - bird.r < p.x + p.w; if (inX) { const gapTop = p.top, gapBottom = p.top + p.g; if (bird.y - bird.r < gapTop || bird.y + bird.r > gapBottom) { end(); return; } } }
   }
+let last = performance.now();
+function loop(now) {
+    const dt = Math.min(0.033, (now - last) / 1000);
+    last = now;
+    if (running && !gameOver) update(dt);
+    drawBackground();
+    drawPipes();
+    drawBird();
+    requestAnimationFrame(loop);
+}
 
-  let last = performance.now();
-  function loop
+// Starta loopen först när bilden är laddad
+birdImg.onload = () => {
+    requestAnimationFrame(loop);
+};
+  
