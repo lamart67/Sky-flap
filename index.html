@@ -76,7 +76,7 @@ birdImg.onload = () => {
   let gameOver = false;
 
   const bird = {
-    x: 0, y: 0, r: 14,
+    x: 0, y: 0, r: 40,
     vy: 0,
   };
 
@@ -204,7 +204,7 @@ birdImg.onload = () => {
 
   function drawPipes() {
     pipes.forEach(p => {
-      const x = Math.floor(p.x);
+      const x = Math.floor(p.x); upp
       const w = p.w;
       // Top pipe
       ctx.fillStyle = '#2A9D8F';
