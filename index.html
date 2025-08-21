@@ -209,9 +209,9 @@
     if (paused) return;
     time += dt;
 
-    bird.vy += 22 * DPR * dt;
-    bird.vy = Math.min(bird.vy, 14 * DPR);
-    bird.y += bird.vy;
+   bird.vy += 30 * DPR * dt;   // starkare gravitation
+bird.vy = Math.min(bird.vy, 18 * DPR); // högre maxfall
+bird.y += bird.vy;
 
     for (let i = 0; i < pipes.length; i++) {
       const p = pipes[i];
